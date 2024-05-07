@@ -1,3 +1,4 @@
+from fastapi import HTTPException, status
 from sqlalchemy import select, delete
 
 from Schemas.PostDTO import PostDTO, PostAddDTO
@@ -13,7 +14,16 @@ def get_all_posts() -> list[PostDTO]:
 
 def get_post_by_id(post_id: int) -> PostDTO:
     with sessionmaker() as session:
-        return PostDTO.model_validate(session.get(PostOrm, post_id), from_attributes=True)
+        post: PostOrm = session.get(PostOrm, post_id)
+        if post is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "status": status.HTTP_404_NOT_FOUND,
+                    "message": f"Post with id {post_id} not found"
+                }
+            )
+        return PostDTO.model_validate(post, from_attributes=True)
 
 
 def create_post(user_id: int, post: PostAddDTO) -> PostDTO:

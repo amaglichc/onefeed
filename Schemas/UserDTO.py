@@ -11,10 +11,11 @@ class RoleEnum(str, Enum):
 
 
 class UserAddDTO(BaseModel):
-    password: str
+    password: str | bytes
     username: str
     email: EmailStr
     role: RoleEnum
+    isActive: bool
     posts: list[PostDTO] = []
 
 

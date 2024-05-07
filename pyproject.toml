@@ -17,6 +17,7 @@ PyJWT = {extras = ["crypto"], version = "^2.8.0"}
 python-dotenv = "^1.0.1"
 psycopg2 = "^2.9.9"
 pydantic = {extras = ["email"], version = "^2.7.1"}
+python-multipart = "^0.0.9"
 
 
 [build-system]
