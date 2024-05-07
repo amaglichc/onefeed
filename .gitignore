@@ -1,4 +1,4 @@
 config.py
 .idea
-certs\
+certs/
 .env
