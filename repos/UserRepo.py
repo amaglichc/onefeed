@@ -56,6 +56,14 @@ def create_user(user: UserAddDTO) -> UserDTO:
 def update_user(user_id: int, user: UserAddDTO) -> UserDTO:
     with sessionmaker() as session:
         user_orm: UserOrm = session.get(UserOrm, user_id)
+        if user_orm is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "status": status.HTTP_404_NOT_FOUND,
+                    "message": f"User with id {user_id} not found"
+                }
+            )
         user_orm.username = user.username
         user_orm.email = user.email
         user_orm.role = user.role

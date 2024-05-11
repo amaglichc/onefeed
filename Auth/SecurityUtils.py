@@ -6,10 +6,10 @@ import jwt
 from Auth.config import Settings
 
 
-def encode_jwt(payload: dict, private_key: str = Settings.auth.private_key_path.read_text(),
+def encode_jwt(payload: dict, expire_minutes: float, private_key: str = Settings.auth.private_key_path.read_text(),
                algorithm: str = Settings.auth.algorithm) -> str:
     now = datetime.now(UTC)
-    expire = now + timedelta(minutes=15)
+    expire = now + timedelta(minutes=expire_minutes)
     payload["exp"] = expire
     payload["iat"] = now
     encode = jwt.encode(payload, private_key, algorithm=algorithm)

@@ -39,7 +39,14 @@ def create_post(user_id: int, post: PostAddDTO) -> PostDTO:
 def get_post_by_user_id(user_id: int) -> list[PostDTO]:
     with sessionmaker() as session:
         res = session.execute(select(PostOrm).where(PostOrm.creator_id == user_id))
-
+        if res is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "status": status.HTTP_404_NOT_FOUND,
+                    "message": "Post not found"
+                }
+            )
         return [PostDTO.model_validate(row, from_attributes=True) for row in
                 res.scalars().all()]
 
@@ -47,8 +54,33 @@ def get_post_by_user_id(user_id: int) -> list[PostDTO]:
 def update_post(post_id: int, post: PostAddDTO) -> PostDTO:
     with sessionmaker() as session:
         post_orm: PostOrm = session.get(PostOrm, post_id)
+        if post_orm is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "status": status.HTTP_404_NOT_FOUND,
+                    "message": f"Post with id {post_id} not found"
+                }
+            )
         post_orm.title = post.title
         post_orm.content = post.content
+        session.commit()
+        return PostDTO.model_validate(post_orm, from_attributes=True)
+
+
+def increase_likes(post_id: int) -> PostDTO:
+    with sessionmaker() as session:
+        post_orm: PostOrm = session.get(PostOrm, post_id)
+        if post_orm is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "status": status.HTTP_404_NOT_FOUND,
+                    "message": f"Post with id {post_id} not found"
+                }
+            )
+        post_orm.likes += 1
+        session.flush()
         session.commit()
         return PostDTO.model_validate(post_orm, from_attributes=True)
 
