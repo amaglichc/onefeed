@@ -16,11 +16,12 @@ router = APIRouter(
 
 
 @router.post("/signup")
-def sign_up(email: Annotated[EmailStr, Form()], password: Annotated[str, Query(min_length=10, max_length=50), Form()],
-            username: Annotated[str, Form()]):
+async def sign_up(email: Annotated[EmailStr, Form()],
+                  password: Annotated[str, Query(min_length=10, max_length=50), Form()],
+                  username: Annotated[str, Form()]):
     new_user: UserAddDTO = UserAddDTO(username=username, email=email, password=password, role=RoleEnum.user,
                                       isActive=True)
-    UserRepo.create_user(new_user)
+    await UserRepo.create_user(new_user)
     return {
         "message": "You have successfully registered",
         "status": status.HTTP_201_CREATED
@@ -28,8 +29,8 @@ def sign_up(email: Annotated[EmailStr, Form()], password: Annotated[str, Query(m
 
 
 @router.post("/signin")
-def sign_in(email: Annotated[EmailStr, Form()], password: Annotated[str, Form()]):
-    user: UserDTO = UserRepo.get_user_by_email(email)
+async def sign_in(email: Annotated[EmailStr, Form()], password: Annotated[str, Form()]):
+    user: UserDTO = await UserRepo.get_user_by_email(email)
     if authUtils.validate_password(password, user.password.encode()):
         return {
             "access_token": create_access_token(user),
@@ -40,7 +41,8 @@ def sign_in(email: Annotated[EmailStr, Form()], password: Annotated[str, Form()]
 
 
 @router.post("/refresh_token")
-def refresh_token(payload: Annotated[dict, Depends(get_token_payload)], user: Annotated[UserDTO, Depends(get_user_by_payload)]):
+def refresh_token(payload: Annotated[dict, Depends(get_token_payload)],
+                  user: Annotated[UserDTO, Depends(get_user_by_payload)]):
     if check_token_type(payload, "refresh"):
         token = create_access_token(user)
         return {"access_token": token,

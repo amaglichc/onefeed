@@ -32,8 +32,9 @@ def get_token_payload(cred: Annotated[HTTPAuthorizationCredentials, Depends(bear
     return payload
 
 
-def get_user_by_payload(payload: Annotated[dict, Depends(get_token_payload)]) -> UserDTO:
-    return UserRepo.get_user_by_id(payload.get("id"))
+async def get_user_by_payload(payload: Annotated[dict, Depends(get_token_payload)]) -> UserDTO:
+    res = await UserRepo.get_user_by_id(payload.get("id"))
+    return res
 
 
 def check_user_active(user: Annotated[UserDTO, Depends(get_user_by_payload)]):
@@ -56,9 +57,10 @@ def check_user_admin(user: Annotated[UserDTO, Depends(get_user_by_payload)]):
         )
 
 
-def check_user_access(user_id: int, token_payload: dict) -> bool:
-    if token_payload["id"] == user_id and check_user_active(get_user_by_payload(token_payload)) and check_token_type(
-            token_payload, token_type="access") or check_user_admin(get_user_by_payload(token_payload)):
+async def check_user_access(user_id: int, token_payload: dict) -> bool:
+    user = await get_user_by_payload(token_payload)
+    if token_payload["id"] == user_id and check_user_active(user) and check_token_type(
+            token_payload, token_type="access") or check_user_admin(user):
         return True
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
@@ -66,10 +68,11 @@ def check_user_access(user_id: int, token_payload: dict) -> bool:
     )
 
 
-def check_post_access(post_id: int, token_payload: dict) -> bool:
-    if token_payload["id"] == PostRepo.get_post_by_id(post_id).creator_id and UserRepo.get_user_by_id(
-            token_payload["id"]).isActive and check_token_type(
-        token_payload, token_type="access") or token_payload["role"] == RoleEnum.admin:
+async def check_post_access(post_id: int, token_payload: dict) -> bool:
+    post = await PostRepo.get_post_by_id(post_id)
+    user = await UserRepo.get_user_by_id(token_payload["id"])
+    if token_payload["id"] == post.creator_id and user.isActive and check_token_type(
+            token_payload, token_type="access") or token_payload["role"] == RoleEnum.admin:
         return True
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
@@ -84,7 +87,7 @@ def create_access_token(user: UserDTO) -> str:
         "email": user.email,
         "role": user.role
     }
-    return authUtils.encode_jwt(payload=payload, expire_minutes=10)
+    return authUtils.encode_jwt(payload=payload, expire_minutes=100)
 
 
 def create_refresh_token(user: UserDTO) -> str:

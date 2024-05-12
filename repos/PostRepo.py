@@ -1,20 +1,25 @@
 from fastapi import HTTPException, status
 from sqlalchemy import select, delete
+from sqlalchemy.orm import selectinload
 
 from Schemas.PostDTO import PostDTO, PostAddDTO
 from database.core import sessionmaker
 from orms.PostOrm import PostOrm
 
 
-def get_all_posts() -> list[PostDTO]:
-    with sessionmaker() as session:
-        return [PostDTO.model_validate(row, from_attributes=True) for row in
-                session.execute(select(PostOrm)).scalars().all()]
+async def get_all_posts() -> list[PostDTO]:
+    async with sessionmaker() as session:
+        res = await session.execute(select(PostOrm))
+        posts = res.scalars().all()
+        return [PostDTO.model_validate(row, from_attributes=True) for row in posts]
 
 
-def get_post_by_id(post_id: int) -> PostDTO:
-    with sessionmaker() as session:
-        post: PostOrm = session.get(PostOrm, post_id)
+async def get_post_by_id(post_id: int) -> PostDTO:
+    async with sessionmaker() as session:
+        res: PostOrm = await session.execute(
+            select(PostOrm).options(selectinload(PostOrm.creator)).options(selectinload(PostOrm.comments)).where(
+                PostOrm.id == post_id))
+        post = res.scalar()
         if post is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -26,34 +31,40 @@ def get_post_by_id(post_id: int) -> PostDTO:
         return PostDTO.model_validate(post, from_attributes=True)
 
 
-def create_post(user_id: int, post: PostAddDTO) -> PostDTO:
-    with sessionmaker() as session:
+async def create_post(user_id: int, post: PostAddDTO) -> PostDTO:
+    async with sessionmaker() as session:
         post_orm: PostOrm = PostOrm(**post.model_dump())
-        session.add(post_orm)
         post_orm.creator_id = user_id
-        session.flush()
-        session.commit()
+        post_orm.comments = []
+        session.add(post_orm)
+        await session.commit()
         return PostDTO.model_validate(post_orm, from_attributes=True)
 
 
-def get_post_by_user_id(user_id: int) -> list[PostDTO]:
-    with sessionmaker() as session:
-        res = session.execute(select(PostOrm).where(PostOrm.creator_id == user_id))
-        if res is None:
+async def get_post_by_user_id(user_id: int) -> list[PostDTO]:
+    async with sessionmaker() as session:
+        res = await session.execute(
+            select(PostOrm).options(selectinload(PostOrm.creator)).options(selectinload(PostOrm.comments)).where(
+                PostOrm.creator_id == user_id))
+        posts = res.scalars().all()
+        if posts is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail={
                     "status": status.HTTP_404_NOT_FOUND,
-                    "message": "Post not found"
+                    "message": "Posts not found"
                 }
             )
         return [PostDTO.model_validate(row, from_attributes=True) for row in
-                res.scalars().all()]
+                posts]
 
 
-def update_post(post_id: int, post: PostAddDTO) -> PostDTO:
-    with sessionmaker() as session:
-        post_orm: PostOrm = session.get(PostOrm, post_id)
+async def update_post(post_id: int, post: PostAddDTO) -> PostDTO:
+    async with sessionmaker() as session:
+        res: PostOrm = await session.execute(
+            select(PostOrm).options(selectinload(PostOrm.creator)).options(selectinload(PostOrm.comments)).where(
+                PostOrm.id == post_id))
+        post_orm = res.scalar()
         if post_orm is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -64,13 +75,17 @@ def update_post(post_id: int, post: PostAddDTO) -> PostDTO:
             )
         post_orm.title = post.title
         post_orm.content = post.content
-        session.commit()
+        await session.commit()
+        await session.refresh(post_orm)
         return PostDTO.model_validate(post_orm, from_attributes=True)
 
 
-def increase_likes(post_id: int) -> PostDTO:
-    with sessionmaker() as session:
-        post_orm: PostOrm = session.get(PostOrm, post_id)
+async def increase_likes(post_id: int) -> PostDTO:
+    async with sessionmaker() as session:
+        res: PostOrm = await session.execute(
+            select(PostOrm).options(selectinload(PostOrm.creator)).options(selectinload(PostOrm.comments)).where(
+                PostOrm.id == post_id))
+        post_orm = res.scalar()
         if post_orm is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -80,12 +95,12 @@ def increase_likes(post_id: int) -> PostDTO:
                 }
             )
         post_orm.likes += 1
-        session.flush()
-        session.commit()
+        await session.flush()
+        await session.commit()
         return PostDTO.model_validate(post_orm, from_attributes=True)
 
 
-def delete_post(post_id: int) -> None:
-    with sessionmaker() as session:
-        session.execute(delete(PostOrm).where(PostOrm.id == post_id))
-        session.commit()
+async def delete_post(post_id: int) -> None:
+    async with sessionmaker() as session:
+        await session.execute(delete(PostOrm).where(PostOrm.id == post_id))
+        await session.commit()

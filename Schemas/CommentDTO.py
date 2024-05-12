@@ -5,7 +5,6 @@ class CommentAddDTO(BaseModel):
     body: str
 
 
-
 class CommentDTO(CommentAddDTO):
     id: int
     author_id: int

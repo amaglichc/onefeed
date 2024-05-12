@@ -15,28 +15,34 @@ router = APIRouter(
 
 
 @router.get("/{comment_id}", response_model=PostDTO)
-def give_like(post_id: int, comment_id: int) -> PostDTO:
-    CommentRepo.increase_likes(comment_id)
-    return PostRepo.get_post_by_id(post_id)
+async def give_like(post_id: int, comment_id: int) -> PostDTO:
+    await CommentRepo.increase_likes(comment_id)
+    res = await PostRepo.get_post_by_id(post_id)
+    return res
 
 
 @router.post("", response_model=PostDTO)
-def create_comment(post_id: int, comment: CommentAddDTO,
-                   user: Annotated[UserDTO, Depends(get_user_by_payload)]) -> PostDTO:
-    CommentRepo.create_comment(post_id=post_id, comment=comment, user_id=user.id)
-    return PostRepo.get_post_by_id(post_id)
+async def create_comment(post_id: int, comment: CommentAddDTO,
+                         user: Annotated[UserDTO, Depends(get_user_by_payload)]) -> PostDTO:
+    await CommentRepo.create_comment(post_id=post_id, comment=comment, user_id=user.id)
+    res = await PostRepo.get_post_by_id(post_id)
+    return res
 
 
 @router.put("/{comment_id}", response_model=PostDTO)
-def update_comment(post_id: int, comment_id: int, comment: CommentAddDTO,
-                   token_payload: dict = Depends(get_token_payload)) -> PostDTO:
-    if check_user_access(user_id=CommentRepo.get_comment_by_id(comment_id).author_id, token_payload=token_payload):
-        CommentRepo.update_comment(comment_id=comment_id, comment=comment)
-        return PostRepo.get_post_by_id(post_id)
+async def update_comment(post_id: int, comment_id: int, comment: CommentAddDTO,
+                         token_payload: dict = Depends(get_token_payload)) -> PostDTO:
+    comment = await CommentRepo.get_comment_by_id(comment_id)
+    if check_user_access(user_id=comment.author_id, token_payload=token_payload):
+        await CommentRepo.update_comment(comment_id=comment_id, comment=comment)
+        res = await PostRepo.get_post_by_id(post_id)
+        return res
 
 
 @router.delete("/{comment_id}", response_model=PostDTO)
-def delete_comment(post_id: int, comment_id: int, token_payload: dict = Depends(get_token_payload)) -> PostDTO:
-    if check_user_access(user_id=CommentRepo.get_comment_by_id(comment_id).author_id, token_payload=token_payload):
-        CommentRepo.delete_comment(comment_id)
-        return PostRepo.get_post_by_id(post_id)
+async def delete_comment(post_id: int, comment_id: int, token_payload: dict = Depends(get_token_payload)) -> PostDTO:
+    comment = await CommentRepo.get_comment_by_id(comment_id)
+    if check_user_access(user_id=comment.author_id, token_payload=token_payload):
+        await CommentRepo.delete_comment(comment_id)
+        res = await PostRepo.get_post_by_id(post_id)
+        return res
